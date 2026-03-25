@@ -18,6 +18,14 @@ taskList.addEventListener("click", (e) => {
         if (!newTitle || newTitle.trim() === "") return;
         tasks[index].title = newTitle;
         renderTasks();
+    } else if (target.closest(".done")) {
+        tasks[index].completed = !tasks[index].completed;
+        renderTasks();
+    } else if (target.closest(".delete")) {
+        if (confirm("Are you sure you want to delete this task?")) {
+            tasks.splice(index, 1);
+            renderTasks();
+        }
     }
 });
 todoForm.addEventListener("submit", (e) => {
