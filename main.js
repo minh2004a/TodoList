@@ -1,76 +1,65 @@
-const loader = JSON.parse(localStorage.getItem("tasks"));
-const tasks = loader || [];
+// Lấy tasks từ localStorage hoặc khởi tạo mảng rỗng nếu không có
+const tasks = JSON.parse(localStorage.getItem("tasks")) ?? [];
 
-const todoForm = document.getElementById("todo-form");
-const taskList = document.getElementById("task-list");
-const todoInput = document.getElementById("todo-input");
+const taskList = document.querySelector("#task-list");
+const todoForm = document.querySelector("#todo-form");
+const todoInput = document.querySelector("#todo-input");
 
-// Lưu trữ tasks vào localStorage
+// hàm lưu tasks vào localStorage
 function saveTasks() {
     localStorage.setItem("tasks", JSON.stringify(tasks));
 }
-
-// Hàm kiểm tra trùng lặp title
-function isDuplicate(title, index = -1) {
+function isDuplicateTask(newTitle, excludeIndex = -1) {
     return tasks.some(
-        (task, i) =>
-            task.title.toLowerCase() === title.toLowerCase() && i !== index,
+        (task, index) =>
+            index !== excludeIndex &&
+            task.title.toLowerCase() === newTitle.toLowerCase(),
     );
 }
-// Sử dụng event delegation để xử lý các hành động trên task items
-function handleTaskActions(e) {
+taskList.addEventListener("click", (e) => {
     const target = e.target;
     const taskItem = target.closest(".task-item");
-    // Xử lý trường hợp click vào phần tử không phải là task item (ví dụ: click vào No tasks yet message)
+
     if (!taskItem) return;
-    const index = +taskItem.getAttribute("data-index");
+    const index = taskItem.dataset.index;
     const task = tasks[index];
     if (target.classList.contains("edit")) {
-        let newTitle = prompt(
-            `Enter new title for task: ${task.title}`,
-            task.title,
-        );
-        if (newTitle === null) return; // User cancelled the prompt
-
+        let newTitle = prompt(`Edit task: ${task.title}`, task.title);
+        newTitle = newTitle ? newTitle.trim() : "";
+        if (!newTitle || newTitle === "") return;
         if (newTitle.length > 20) {
-            alert("Title cannot be longer than 20 characters!");
+            alert("Task title should be less than 20 characters.");
             return;
         }
 
-        newTitle = newTitle.trim();
-        if (!newTitle) {
-            alert("Title cannot be empty!");
-            return;
-        }
-        if (isDuplicate(newTitle, index)) {
-            alert("Task already exists!");
+        if (isDuplicateTask(newTitle, index)) {
+            alert("Task already exists. Please enter a different task.");
             return;
         }
         task.title = newTitle;
-        saveTasks();
-        renderTasks();
-    }
-    if (target.classList.contains("done")) {
-        task.completed = !task.completed;
-        saveTasks();
-        renderTasks();
-    }
-    if (target.classList.contains("delete")) {
-        if (!confirm(`Are you sure you want to delete task: ${task.title}?`))
-            return;
-        tasks.splice(index, 1);
-        saveTasks();
-        renderTasks();
-    }
-}
 
-// Thêm task mới
-function addTask(e) {
+        renderTasks();
+        saveTasks();
+    } else if (target.classList.contains("done")) {
+        task.completed = !task.completed;
+
+        renderTasks();
+        saveTasks();
+    } else if (target.classList.contains("delete")) {
+        if (confirm(`Are you sure you want to delete task: ${task.title}?`)) {
+            tasks.splice(index, 1);
+            renderTasks();
+            saveTasks();
+        }
+    }
+});
+
+todoForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const title = todoInput.value.trim();
     if (!title) return;
-    if (isDuplicate(title)) {
-        alert("Task already exists!");
+    if (isDuplicateTask(title)) {
+        alert("Task already exists. Please enter a different task.");
         return;
     }
     const newTask = {
@@ -79,34 +68,41 @@ function addTask(e) {
     };
     tasks.push(newTask);
     todoInput.value = "";
-    saveTasks();
+    todoInput.focus();
     renderTasks();
-}
+    saveTasks();
+});
 
-// Render danh sách task ra giao diện
+function crateTaskElement(task, index) {
+    const li = document.createElement("li");
+    li.className = `task-item ${task.completed ? "completed" : ""}`;
+    li.dataset.index = index;
+    const span = document.createElement("span");
+    span.className = "task-title";
+    span.textContent = task.title;
+    const actionDiv = document.createElement("div");
+    actionDiv.className = "task-action";
+    actionDiv.innerHTML = `
+        <button class="task-btn edit">Edit</button>
+        <button class="task-btn done">${task.completed ? "Mark as undone" : "Mark as done"}</button>
+        <button class="task-btn delete">Delete</button>
+    `;
+    li.append(span, actionDiv);
+    return li;
+}
 function renderTasks() {
-    if (!tasks.length) {
-        taskList.innerHTML = `<li id="empty-message" class="empty-message">No tasks yet. Add one above!</li>`;
+    // khi không có task nào thì hiển thị thông báo
+    if (tasks.length === 0) {
+        taskList.innerHTML = "<li class='empty-message'>No tasks yet. Add a task to get started!</li>";
         return;
     }
-    const html = tasks
-        .map(
-            (task, index) => `  
-    <li class="task-item ${task.completed ? "completed" : ""}" data-index="${index}">
-        <span class="task-title">${task.title}</span>
-        <div class="task-action">
-            <button class="task-btn edit">Edit</button>
-            <button class="task-btn done">${task.completed ? "Mark as undone" : "Mark as done"}</button>
-            <button class="task-btn delete">Delete</button>
-        </div>
-    </li>
-`,
-        )
-        .join("");
-
-    taskList.innerHTML = html;
+    const fragment = document.createDocumentFragment();
+    // tạo phần tử li cho mỗi task và thêm vào fragment
+    tasks.forEach((task, index) => {
+        fragment.appendChild(crateTaskElement(task, index));
+    });
+    // xóa nội dung cũ của taskList và thêm fragment vào để hiển thị các task mới
+    taskList.innerHTML = "";
+    taskList.appendChild(fragment);
 }
-
-todoForm.addEventListener("submit", addTask);
-taskList.addEventListener("click", handleTaskActions);
 renderTasks();
